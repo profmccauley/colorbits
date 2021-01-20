@@ -121,7 +121,11 @@ const reticle = document.getElementById("reticle");
 //canvas.height = 240;//360;
 
 const NUM_BITS = 8;
-const THRESH = 128;
+var THRESH = 128;
+
+
+var ATHRESH = 128;
+var BTHRESH = 128;
 
 var cur_bit = 0;
 var cur_byte = 0;
@@ -139,6 +143,8 @@ function append (ch)
     console.log(ch);
 }
 
+var bf2 = false;
+
 function process_frame () {
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
@@ -149,12 +155,25 @@ function process_frame () {
 //  var rgb = [ data[0], data[1], data[2] ];
 //  console.log(data,rgb);
 
-  var A = data[2] > THRESH;
-  var B = data[0] > THRESH;
+var tf = 0.999;
+ATHRESH *= tf;
+BTHRESH *= tf;
+ATHRESH += data[2] * (1-tf);
+BTHRESH += data[0] * (1-tf);
+
+var hf = 1.2;
+var lf = 0.8;
+
+if ((data[2] > lf * ATHRESH) && (data[2] < hf * ATHRESH)) return;
+if ((data[0] > lf * BTHRESH) && (data[0] < hf * BTHRESH)) return;
+
+  var A = data[2] >= hf * ATHRESH;
+  var B = data[0] >= hf * BTHRESH;
   var AA = oA, BB = oB;
   oA = A; oB = B;
   A = A == AA;
   B = B == BB;
+
 
   if (A && B) return;
 //console.log("-",A,B);
@@ -173,10 +192,14 @@ function process_frame () {
     if (new_frame)
     {
       console.log("Bad framing2");
+      if (bf2) return;
+      bf2 = true;
       append("?");
       return;
     }
   }
+
+bf2 = false;
 
   var bit = (!A) ? 0 : 1;
 
@@ -208,8 +231,8 @@ function process_frame () {
 const constraints = {
   audio: false,
   video: {
-    width: {ideal:40},
-    height: {ideal:40},
+    width: {ideal:30},
+    height: {ideal:20},
     facingMode: "environment",
     frameRate: {ideal: 60},
   },
