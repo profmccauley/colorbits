@@ -1,0 +1,128 @@
+<html>
+<head>
+
+<style>
+
+#dot {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2000px;
+  height: 2000px;
+  z-index: 1;
+  background-color: black;
+}
+
+</style>
+
+
+<script>
+
+var message = "Hello, world!\n";
+var bit_delay = 75;
+
+const ON = 192;
+const OFF = 32;
+
+var cur_char = 0;
+var cur_bit = 0;
+
+var AA = 0;
+var BB = 0;
+
+var next_bit_time = 0;
+
+var new_frame = false;
+
+var dot;
+
+function send (A, B)
+{
+    console.log(A==AA,B==BB);
+
+    var bb = A ? ON : OFF;
+    var rr = B ? ON : OFF;
+    var gg = 32;
+
+    dot.style.backgroundColor = "rgb("+rr+","+gg+","+bb+")";
+}
+
+function on_frame ()
+{
+  window.requestAnimationFrame(on_frame);
+  var now = Date.now();
+  if (now < next_bit_time) return;
+  next_bit_time = now + bit_delay;
+
+  if (new_frame)
+  {
+    new_frame = false;
+    var A = !AA;
+    var B = !BB;
+    AA = A;
+    BB = B;
+    send(A, B);
+
+    return;
+  }
+
+  while (true)
+  {
+    if (cur_char >= message.length)
+    {
+      cur_char = 0;
+      cur_bit = 0;
+      // Send frame clear
+      console.log("Reset");
+      //return;
+    }
+
+    var c = message.charCodeAt(cur_char);
+    if ((c < 32 || c > 126) && c != 10) c = ".".charCodeAt(0);
+
+    if (cur_bit == 0) console.log("Sending " + message.charAt(cur_char));
+
+    var bit = 1 << cur_bit;
+
+    var b = (c & bit) ? 1 : 0;
+
+    var A = !AA;
+    var B = BB;
+    if (b)
+    {
+      A = AA;
+      B = !BB;
+    }
+
+send(A, B);
+
+    ++ cur_bit;
+    if (cur_bit >= 8)
+    {
+      cur_bit = 0;
+      ++ cur_char;
+      new_frame = true;
+    }
+
+    AA = A;
+    BB = B;
+
+    break;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  dot = document.getElementById("dot");
+  window.requestAnimationFrame(on_frame);
+  //setInterval(on_frame, 17);
+}, false);
+
+
+
+</script>
+
+</head>
+<body>
+<div id="dot"></div>
+</body>
+</html>
