@@ -23,6 +23,7 @@ var bit_delay = 75;
 
 var ON = 192;
 var OFF = 32;
+var OTH = 64;
 
 var cur_char = 0;
 var cur_bit = 0;
@@ -42,7 +43,7 @@ function send (A, B)
 
     var bb = A ? ON : OFF;
     var rr = B ? ON : OFF;
-    var gg = 32;
+    var gg = OTH;
 
     dot.style.backgroundColor = "rgb("+rr+","+gg+","+bb+")";
 }
