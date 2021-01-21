@@ -280,7 +280,7 @@ function do_request ()
   var req = new XMLHttpRequest();
   req.addEventListener("load", on_web_data);
   //req.open("GET", "http://localhost:8001/static/txer.txt?" + (new Date()).getTime());
-  req.open("GET", "http:c30.millennium.berkeley.edu:8001/static/txer.txt?" + (new Date()).getTime());
+  req.open("GET", "https://c30.millennium.berkeley.edu:8001/static/txer.txt?" + (new Date()).getTime());
   req.send();
 }
 
