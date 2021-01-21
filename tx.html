@@ -1,5 +1,6 @@
 <html>
 <head>
+<!-- <script src="https://code.jquery.com/jquery-latest.min.js" type="text/javascript"></script> -->
 
 <style>
 
@@ -7,8 +8,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 2000px;
-  height: 2000px;
+  width: 200px;
+  height: 200px;
   z-index: 1;
   background-color: black;
 }
@@ -18,12 +19,30 @@
 
 <script>
 
+var old_message = null;
+
 var message = "Hello, world!\n";
 var bit_delay = 75;
 
+var next_message = null;
+
+
+const OTHS = [0, 64, 128, 192, 255];
+const OFFS = [0, 32, 64, 96];
+const ONS = [128, 160, 192, 255];
+
+function next_in (v, l)
+{
+  var cur = l.findIndex(e=>e == v);
+  ++cur;
+  if (cur >= l.length) cur = 0;
+  console.log("from",v,"to",l[cur]);
+  return l[cur];
+}
+
 var ON = 192;
 var OFF = 32;
-var OTH = 64;
+var OTH = 128;
 
 var cur_char = 0;
 var cur_bit = 0;
@@ -37,9 +56,12 @@ var new_frame = false;
 
 var dot;
 
+var pause = false;
+var repeat_mode = true;
+
 function send (A, B)
 {
-    console.log(A==AA,B==BB);
+    //console.log(A==AA,B==BB);
 
     var bb = A ? ON : OFF;
     var rr = B ? ON : OFF;
@@ -51,6 +73,7 @@ function send (A, B)
 function on_frame ()
 {
   window.requestAnimationFrame(on_frame);
+  if (pause) return;
   var now = Date.now();
   if (now < next_bit_time) return;
   next_bit_time = now + bit_delay;
@@ -74,8 +97,32 @@ function on_frame ()
       cur_char = 0;
       cur_bit = 0;
       // Send frame clear
-      console.log("Reset");
-      //return;
+      if (repeat_mode)
+      {
+        console.log("Repeat");
+        if (message == "")
+        {
+          if (next_message != null)
+          {
+            message=next_message;
+            next_message = null;
+          }
+        }
+      }
+      else
+      {
+        if (next_message != null)
+        {
+          message = next_message;
+          next_message = null;
+        }
+        else
+        {
+          message = "";
+        }
+        new_frame = true;
+        return;
+      }
     }
 
     var c = message.charCodeAt(cur_char);
@@ -103,6 +150,12 @@ send(A, B);
       cur_bit = 0;
       ++ cur_char;
       new_frame = true;
+      if (next_message != null)
+      {
+        message = next_message;
+        next_message = null;
+        cur_char = 0;
+      }
     }
 
     AA = A;
@@ -112,9 +165,141 @@ send(A, B);
   }
 }
 
+const BGS = [0,128,255];
+var BG = 128;
+
+function setbg ()
+{
+  document.body.style.backgroundColor = "rgb("+BG+","+BG+","+BG+")";
+}
+
+const numkeys = ["1","2","3","4","5","6","7","8","9"];
+const rates = [40,66,75,100,150,250,450,600,1000];
+
+function on_key (event)
+{
+  if (event.key == 'g')
+    OTH = next_in(OTH, OTHS);
+  else if (event.key == 'h')
+    OFF = next_in(OFF, OFFS);
+  else if (event.key == 'j')
+    ON = next_in(ON, ONS);
+  else if (event.key == 'b')
+  {
+    BG = next_in(BG, BGS);
+    setbg();
+  }
+  else if (event.key == ' ')
+    pause = !pause;
+  else if (event.key == 'M')
+  {
+    var msg = window.prompt("Enter the message.",message.replace("\n",""));
+    if (msg)
+    {
+      next_message = msg + "\n";
+    }
+    else
+    {
+      next_message = "";
+    }
+  }
+  else if (event.key == 'R')
+  {
+    repeat_mode = !repeat_mode;
+  }
+  else if (event.key == 'f')
+  {
+    if (dot == document.body)
+    {
+      document.body.style.backgroundColor = "rgb(128,128,128)";
+      dot = document.getElementById("dot");
+      dot.style.visibility = '';
+    }
+    else
+    {
+      dot.style.visibility = 'hidden';
+      dot = document.body;
+    }
+  }
+  else
+  {
+    var cur = numkeys.findIndex(e=>e == event.key);
+    if (cur > -1)
+    {
+      bit_delay = rates[cur];
+    }
+  }
+}
+
+var request_time = 2000;
+
+function on_web_data ()
+{
+  if (this.readyState == 4 && this.status == 200)
+  {
+    //console.log(this.responseText);
+    var data = JSON.parse(this.responseText);
+    console.log(data.bit_delay);
+    if (data.repeat_mode != undefined) repeat_mode = !!data.repeat_mode;
+    if (data.bit_delay != undefined) bit_delay = data.bit_delay;
+    if (data.message != undefined)
+    {
+//console.log(message,old_message);
+      if (data.message != message && data.message != old_message)
+      {
+        next_message = data.message;
+        old_message = next_message;
+      }
+    }
+    if (data.force_message != undefined)
+    {
+      old_message = null;
+      message = "";
+      next_message = data.force_message;
+    }
+    if (data.request_time != undefined)
+    {
+      var old = request_time;
+      request_time = data.request_time;
+      if (!Number.isInteger(request_time)) request_time = 2000;
+      if (request_time < 200) request_time = 200;
+      if (request_time > 10000) request_time = 10000;
+      if (request_time != old)
+      {
+        console.log("Request time is now", request_time);
+        setTimeout(do_request, request_time);
+      }
+    }
+    console.log(data);
+  }
+}
+
+function do_request ()
+{
+  setTimeout(do_request, request_time);
+  var req = new XMLHttpRequest();
+  req.addEventListener("load", on_web_data);
+  //req.open("GET", "http://localhost:8001/static/txer.txt?" + (new Date()).getTime());
+  req.open("GET", "http:c30.millennium.berkeley.edu:8001/static/txer.txt?" + (new Date()).getTime());
+  req.send();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(do_request, request_time);
+
+  setbg();
+
   dot = document.getElementById("dot");
-  window.requestAnimationFrame(on_frame);
+
+  document.addEventListener('keydown', on_key, true);
+
+  if (confirm("WARNING!  If you press OK, this web page will create flashing light.\n" +
+              "People with photosensitive epilepsy (PSE) should likely not view it.\n\n" +
+              "Press OK if flashing light is acceptable to you.\n" +
+              "Press Cancel if you are concerned."))
+  {
+    window.requestAnimationFrame(on_frame);
+  }
   //setInterval(on_frame, 17);
 }, false);
 
@@ -125,5 +310,13 @@ document.addEventListener('DOMContentLoaded', function() {
 </head>
 <body>
 <div id="dot"></div>
+Try the following by pressing keys:
+<ul>
+<li/>space - stop/start
+<li/>f - flash whole window
+<li/>g - cycle through green
+<li/>h - cycle through dimness
+<li/>j - cycle through brightness
+</ul>
 </body>
 </html>
